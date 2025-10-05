@@ -7,13 +7,20 @@ interface Job {
 }
 
 function App() {
-  const [url, setUrl] = useState('')
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [query, setQuery] = useState('')
+  const [isIntern, setIsIntern] = useState(false)
+  
 
+const handleQuery = (event: React.ChangeEvent<HTMLInputElement>) => {
+  setQuery(event.currentTarget.value);
+}
 
-
+const handleIsIntern = (event: React.ChangeEvent<HTMLInputElement>) => {
+  setIsIntern(event.currentTarget.checked);
+}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,13 +35,12 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ starturl: url }),
+        body: JSON.stringify({ query, isIntern }),
       })
 
       if (!response.ok) {
         throw new Error('Failed to fetch jobs')
       }
-
       const data = await response.json()
       setJobs(data)
     } catch (err) {
@@ -47,7 +53,8 @@ const [filter, setFilter] = useState('')
 const handleFilter = (event: React.ChangeEvent<HTMLInputElement>) => {
   setFilter(event.currentTarget.value);
 }
-const filtered = useMemo(() => jobs.filter(job => job.title.includes(filter)), [jobs, filter])
+
+const filtered = useMemo(() => jobs.filter(job => job.title.includes(filter)), [jobs, filter]) ?? [];
 console.log(filter)
 
   return (
@@ -56,15 +63,19 @@ console.log(filter)
       <div style={{margin:"2%"}}>
         <input type="text" className='url-input' value={filter} onChange={handleFilter} placeholder='Filtruj oferty'/>
       </div>
+      <div style={{margin:"2%"}}>
+        <span>IsIntern
+        <input type="checkbox" className='url-input' checked={isIntern} onChange={handleIsIntern} />
+        </span>
+      </div>
       
       <form onSubmit={handleSubmit} className="search-form">
         <input
           type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="Enter job search URL"
+          value={query}
+          onChange={handleQuery}
+          placeholder="Napisz rodzaj stanowiska"
           className="url-input"
-          required
         />
         <button type="submit" disabled={loading}>
           {loading ? 'Loading...' : 'Search Jobs'}
@@ -99,7 +110,7 @@ console.log(filter)
 
       )}
 
-      {!loading && jobs.length === 0 && url && (
+      {!loading && jobs.length === 0 && query && (
         <p className="no-results">No jobs found</p>
       )}
     </div>
