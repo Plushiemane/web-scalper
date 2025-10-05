@@ -12,7 +12,28 @@ function App() {
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [isIntern, setIsIntern] = useState(false)
+  const [localization, setLocalization] = useState('Remote')
+  const [ETCategories, setEtCategories] = useState<string[]>([])
   
+interface PositionLevel {
+  etcode : number
+  name : string
+}
+
+const PositionLevels : PositionLevel[] = [
+  {etcode: 1, name: "praktykant/stażysta"},
+  {etcode: 2, name: "pracownik fizyczny"},
+  {etcode: 3, name: "asystent"},
+  {etcode: 4, name: "Mid"},
+  {etcode: 5, name: "kierownik"},
+  {etcode: 6, name: "dyrektor"},
+  {etcode: 17, name: "junior"},
+  {etcode: 18, name: "Senior"},
+  {etcode: 19, name: "Ekspert"},
+  {etcode: 20, name: "Menedżer"},
+  {etcode: 21, name: "prezes"}
+]
+
 
 const handleQuery = (event: React.ChangeEvent<HTMLInputElement>) => {
   setQuery(event.currentTarget.value);
@@ -50,6 +71,7 @@ const handleIsIntern = (event: React.ChangeEvent<HTMLInputElement>) => {
     }
   }
 const [filter, setFilter] = useState('')
+console.log(ETCategories);
 const handleFilter = (event: React.ChangeEvent<HTMLInputElement>) => {
   setFilter(event.currentTarget.value);
 }
@@ -64,9 +86,24 @@ console.log(filter)
         <input type="text" className='url-input' value={filter} onChange={handleFilter} placeholder='Filtruj oferty'/>
       </div>
       <div style={{margin:"2%"}}>
-        <span>IsIntern
-        <input type="checkbox" className='url-input' checked={isIntern} onChange={handleIsIntern} />
-        </span>
+        {PositionLevels.map((level) => (
+          <label key={level.etcode} style={{marginRight:"10px"}}>
+            <input
+              type="checkbox"
+              value={level.name}
+              checked={ETCategories.includes(level.name)}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setEtCategories([...ETCategories, level.name]);
+                } else {
+                  setEtCategories(ETCategories.filter((cat) => cat !== level.name));
+                }
+              }}
+
+            />
+            {level.name}
+          </label>
+        ))}
       </div>
       
       <form onSubmit={handleSubmit} className="search-form">
@@ -77,6 +114,7 @@ console.log(filter)
           placeholder="Napisz rodzaj stanowiska"
           className="url-input"
         />
+        <input type='text' value={localization}/>
         <button type="submit" disabled={loading}>
           {loading ? 'Loading...' : 'Search Jobs'}
         </button>

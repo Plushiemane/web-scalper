@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ type Job struct {
 type Request struct {
 	Query    string `json:"query"`
 	IsIntern bool   `json:"isintern"`
+	ETypes   []int  `json:"et,omitempty"` // optional: multiple et codes, e.g. [1,3]
 }
 
 func init() {
@@ -33,25 +35,14 @@ func checkerror(err error) {
 	}
 }
 
-func extractJobs(doc *goquery.Document, url string, isintern bool) []Job {
+func extractJobs(doc *goquery.Document, baseURL string, isintern bool) []Job {
 	var jobs []Job
 	pages := findNumberPages(doc)
-	log.Printf("Total pages: %d | start URL: %s | isIntern=%v", pages, url, isintern)
-
-	appendix := "?pn=" // default for no existing query params
-	if isintern {
-		appendix = "&pn=" // intern URLs already have ?et=1
-	}
+	log.Printf("Total pages: %d | start URL: %s | isIntern=%v", pages, baseURL, isintern)
 
 	seen := make(map[string]bool)
 	for i := 1; i <= pages; i++ {
-		var newURL string
-		if i == 1 {
-			newURL = url
-		} else {
-			newURL = url + appendix + strconv.Itoa(i)
-		}
-
+		newURL := withPn(baseURL, i)
 		log.Printf("Fetching page %d: %s", i, newURL)
 		pageDoc := getObj(newURL)
 		if pageDoc == nil {
@@ -79,6 +70,23 @@ func extractJobs(doc *goquery.Document, url string, isintern bool) []Job {
 	}
 	log.Printf("Extraction finished. Total jobs: %d", len(jobs))
 	return jobs
+}
+
+// withPn sets pn only when page > 1, preserving existing query params.
+func withPn(base string, page int) string {
+	u, err := url.Parse(base)
+	if err != nil {
+		log.Printf("withPn: parse error for %q: %v", base, err)
+		return base
+	}
+	q := u.Query()
+	if page > 1 {
+		q.Set("pn", strconv.Itoa(page))
+	} else {
+		q.Del("pn")
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func getObj(url string) *goquery.Document {
@@ -112,14 +120,21 @@ func findNumberPages(doc *goquery.Document) int {
 	return number
 }
 
-func buildURL(query string, isIntern bool) string {
-	starturl := "https://www.pracuj.pl/praca/"
-	URL := starturl + query + ";kw"
-	if isIntern {
-		URL += "?et=1"
+func buildURL(query string, etCodes []int) string {
+	u, _ := url.Parse("https://www.pracuj.pl/praca/" + query + ";kw")
+	q := u.Query()
+	if len(etCodes) > 0 {
+		parts := make([]string, 0, len(etCodes))
+		for _, c := range etCodes {
+			parts = append(parts, strconv.Itoa(c))
+		}
+		// Results in et=1,3 (encoded as 1%2C3). Both are accepted by the site.
+		q.Set("et", strings.Join(parts, ","))
 	}
-	log.Printf("buildURL: query=%q isIntern=%v -> %s", query, isIntern, URL)
-	return URL
+	u.RawQuery = q.Encode()
+	out := u.String()
+	log.Printf("buildURL: query=%q et=%v -> %s (rawQuery=%q)", query, etCodes, out, u.RawQuery)
+	return out
 }
 
 func jobsHandler(w http.ResponseWriter, r *http.Request) {
@@ -146,9 +161,15 @@ func jobsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Request: query=%q isIntern=%v", req.Query, req.IsIntern)
+	log.Printf("Request: query=%q isIntern=%v et=%v", req.Query, req.IsIntern, req.ETypes)
 
-	URL := buildURL(req.Query, req.IsIntern)
+	// Back-compat: IsIntern implies et=1 if no explicit et list provided.
+	et := req.ETypes
+	if len(et) == 0 && req.IsIntern {
+		et = []int{1}
+	}
+
+	URL := buildURL(req.Query, et)
 	doc := getObj(URL)
 	log.Printf("Start URL fetched: %s docNil=%v", URL, doc == nil)
 	if doc == nil {
