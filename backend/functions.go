@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -20,8 +21,7 @@ type Job struct {
 
 type Request struct {
 	Query    string `json:"query"`
-	IsIntern bool   `json:"isintern"`
-	ETypes   []int  `json:"et,omitempty"` // optional: multiple et codes, e.g. [1,3]
+	ETypes   []int  `json:"ETCategories,omitempty"` // optional: multiple et codes, e.g. [1,3]
 }
 
 func init() {
@@ -29,16 +29,17 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
+
 func checkerror(err error) {
 	if err != nil {
 		log.Printf("ERROR: %v\n%s", err, debug.Stack())
 	}
 }
 
-func extractJobs(doc *goquery.Document, baseURL string, isintern bool) []Job {
+func extractJobs(doc *goquery.Document, baseURL string) []Job {
 	var jobs []Job
 	pages := findNumberPages(doc)
-	log.Printf("Total pages: %d | start URL: %s | isIntern=%v", pages, baseURL, isintern)
+	log.Printf("Total pages: %d | start URL: %s |", pages, baseURL)
 
 	seen := make(map[string]bool)
 	for i := 1; i <= pages; i++ {
@@ -161,14 +162,11 @@ func jobsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Request: query=%q isIntern=%v et=%v", req.Query, req.IsIntern, req.ETypes)
+	log.Printf("Request: query=%q et=%v", req.Query, req.ETypes)
 
 	// Back-compat: IsIntern implies et=1 if no explicit et list provided.
 	et := req.ETypes
-	if len(et) == 0 && req.IsIntern {
-		et = []int{1}
-	}
-
+	fmt.Println(et);
 	URL := buildURL(req.Query, et)
 	doc := getObj(URL)
 	log.Printf("Start URL fetched: %s docNil=%v", URL, doc == nil)
@@ -177,7 +175,7 @@ func jobsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jobs := extractJobs(doc, URL, req.IsIntern)
+	jobs := extractJobs(doc, URL)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(jobs); err != nil {
 		checkerror(err)

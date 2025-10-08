@@ -11,9 +11,8 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
-  const [isIntern, setIsIntern] = useState(false)
   const [localization, setLocalization] = useState('Remote')
-  const [ETCategories, setEtCategories] = useState<string[]>([])
+  const [ETCategories, setEtCategories] = useState<number[]>([])
   
 interface PositionLevel {
   etcode : number
@@ -39,9 +38,6 @@ const handleQuery = (event: React.ChangeEvent<HTMLInputElement>) => {
   setQuery(event.currentTarget.value);
 }
 
-const handleIsIntern = (event: React.ChangeEvent<HTMLInputElement>) => {
-  setIsIntern(event.currentTarget.checked);
-}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,7 +52,7 @@ const handleIsIntern = (event: React.ChangeEvent<HTMLInputElement>) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query, isIntern }),
+        body: JSON.stringify({ query, ETCategories }),
       })
 
       if (!response.ok) {
@@ -91,12 +87,12 @@ console.log(filter)
             <input
               type="checkbox"
               value={level.name}
-              checked={ETCategories.includes(level.name)}
+              checked={ETCategories.includes(level.etcode)}
               onChange={(e) => {
                 if (e.target.checked) {
-                  setEtCategories([...ETCategories, level.name]);
+                  setEtCategories([...ETCategories, level.etcode]);
                 } else {
-                  setEtCategories(ETCategories.filter((cat) => cat !== level.name));
+                  setEtCategories(ETCategories.filter((cat) => cat !== level.etcode));
                 }
               }}
 
